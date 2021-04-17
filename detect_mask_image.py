@@ -27,6 +27,9 @@ ret, image = cap.read()
 orig = image.copy()
 (h, w) = image.shape[:2]
 
+mask_detected = 0  # Initialising variable to store mask detected or not
+device = XBeeDevice("COM1", 9600)  # Instantiating a generic XBee device
+
 # construct a blob from the image
 blob = cv2.dnn.blobFromImage(image, 1.0, (300, 300),
                              (104.0, 177.0, 123.0))
@@ -36,7 +39,6 @@ print("[INFO] Computing face detections...")
 net.setInput(blob)
 detections = net.forward()
 
-mask_detected = "0"
 
 # loop over the detections
 for i in range(0, detections.shape[2]):
@@ -80,21 +82,28 @@ for i in range(0, detections.shape[2]):
 
 # show the output image
 cv2.imshow("Output", image)
-cv2.waitKey(10)
+cv2.waitKey(0)
 cap.release()
 cv2.destroyAllWindows()
 
+# Warning to wear mask
 if mask_detected == 0:
     print("Please wear mask!")
     sys.exit()
 
-# Receiving data from XBEE attached to Arduino
-device = XBeeDevice("COM5", 9600)
+# Sending data to Arduino
 device.open()
-xbee_msg = device.read_data(timeout=20)
+device.send_data_broadcast(str(mask_detected))
+device.close()
+
+# Receiving data from Arduino
+device.open()
+xbee_msg = device.read_data(timeout=300)
 temp_res = xbee_msg.data
+device.close()
 # print(chr(temp_res[0]))
 
+# Checking mask and temperature to allow access
 if mask_detected and int(chr(temp_res[0])):
     print("Access granted!")
 else:
